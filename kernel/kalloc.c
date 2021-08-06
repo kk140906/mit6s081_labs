@@ -11,6 +11,8 @@
 
 void freerange(void *pa_start, void *pa_end);
 
+uint64 freespace();
+
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
@@ -35,8 +37,9 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE) {
     kfree(p);
+  }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -72,11 +75,25 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if(r) 
     kmem.freelist = r->next;
   release(&kmem.lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+uint64 
+freespace() {
+  int freecounts = 0;
+  struct run *r;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  release(&kmem.lock);
+  while(r) {
+    freecounts++;
+    r = r->next;
+  }
+  return freecounts * PGSIZE;
 }
